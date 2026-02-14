@@ -2,15 +2,16 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from '../components/Card';
 import { vocabulary } from '../data/vocabulary';
-import { ChevronRight, ArrowLeft } from 'lucide-react';
+import { ChevronRight, ArrowLeft, ArrowRightLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useGameStore } from '../store/useGameStore';
+import clsx from 'clsx';
 
 export function Learn() {
     const [currentIndex, setCurrentIndex] = useState(0);
     const currentWord = vocabulary[currentIndex];
 
-    const { addPoints, updateMissionProgress } = useGameStore();
+    const { addPoints, updateMissionProgress, flashcardMode, setFlashcardMode } = useGameStore();
 
     const handleNext = () => {
         // Basic gamification: Award 1 point for reviewing a card
@@ -25,13 +26,26 @@ export function Learn() {
         }
     };
 
+    const toggleMode = () => {
+        setFlashcardMode(flashcardMode === 'EN_KR' ? 'KR_EN' : 'EN_KR');
+    }
+
     return (
         <div className="flex flex-col h-full bg-slate-50">
             <header className="p-4 flex items-center justify-between">
                 <Link to="/" className="p-2 hover:bg-slate-200 rounded-full transition-colors">
                     <ArrowLeft className="w-6 h-6 text-slate-600" />
                 </Link>
-                <h1 className="text-lg font-bold text-slate-800">Flashcards</h1>
+
+                <div
+                    className="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors"
+                    onClick={toggleMode}
+                >
+                    <span className={clsx("text-xs font-bold transition-colors", flashcardMode === 'EN_KR' ? "text-indigo-600" : "text-slate-400")}>EN</span>
+                    <ArrowRightLeft className="w-4 h-4 text-slate-400" />
+                    <span className={clsx("text-xs font-bold transition-colors", flashcardMode === 'KR_EN' ? "text-indigo-600" : "text-slate-400")}>KR</span>
+                </div>
+
                 <div className="w-10" /> {/* Spacer */}
             </header>
 
@@ -39,13 +53,13 @@ export function Learn() {
                 <div className="w-full max-w-sm relative">
                     <AnimatePresence mode="wait">
                         <motion.div
-                            key={currentWord.id}
+                            key={currentWord.id + flashcardMode} // Key change triggers animation on mode switch too
                             initial={{ x: 50, opacity: 0, scale: 0.95 }}
                             animate={{ x: 0, opacity: 1, scale: 1 }}
                             exit={{ x: -50, opacity: 0, scale: 0.95 }}
                             transition={{ duration: 0.2 }}
                         >
-                            <Card word={currentWord} />
+                            <Card word={currentWord} mode={flashcardMode} />
                         </motion.div>
                     </AnimatePresence>
                 </div>
