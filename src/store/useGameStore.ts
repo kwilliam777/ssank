@@ -22,6 +22,9 @@ interface GameState {
     lastLoginDate: string;
     dailyMissions: DailyMission[];
 
+    // Settings
+    flashcardMode: 'EN_KR' | 'KR_EN';
+
     // Actions
     addPoints: (amount: number) => void;
     incrementStreak: () => void;
@@ -29,6 +32,7 @@ interface GameState {
     unlockBadge: (badgeId: string) => void;
     updateMissionProgress: (missionId: string, amount: number) => void;
     checkDailyReset: () => void;
+    setFlashcardMode: (mode: 'EN_KR' | 'KR_EN') => void;
 }
 
 const DEFAULT_MISSIONS: DailyMission[] = [
@@ -48,6 +52,7 @@ export const useGameStore = create<GameState>()(
 
             lastLoginDate: new Date().toDateString(),
             dailyMissions: DEFAULT_MISSIONS,
+            flashcardMode: 'EN_KR',
 
             addPoints: (amount) => {
                 const { xp, xpToNextLevel, level } = get();
@@ -111,7 +116,9 @@ export const useGameStore = create<GameState>()(
                         dailyMissions: DEFAULT_MISSIONS.map(m => ({ ...m, progress: 0, completed: false }))
                     });
                 }
-            }
+            },
+
+            setFlashcardMode: (mode) => set({ flashcardMode: mode }),
         }),
         {
             name: 'ssank-game-storage',
