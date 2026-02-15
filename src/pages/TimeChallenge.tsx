@@ -2,12 +2,15 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useGameStore } from '../store/useGameStore';
 import { vocabulary } from '../data/vocabulary';
 import { QuizOption } from '../components/QuizOption';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, Timer, RefreshCw } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Timer, RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { ProgressBar } from '../components/ProgressBar';
+import { playSound } from '../utils/sound';
+import { BackButton } from '../components/BackButton';
 
 export function TimeChallenge() {
+    const navigate = useNavigate();
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
     const [selectedOption, setSelectedOption] = useState<string | null>(null);
     const [isAnswered, setIsAnswered] = useState(false);
@@ -15,21 +18,32 @@ export function TimeChallenge() {
     const [isGameOver, setIsGameOver] = useState(false);
     const [sessionPoints, setSessionPoints] = useState(0);
 
-    const { addPoints } = useGameStore();
+    const { addPoints, currentLevel, currentChapter, updateMissionProgress } = useGameStore();
     const timerRef = useRef<NodeJS.Timeout>();
 
+    const filteredVocabulary = useMemo(() => {
+        return vocabulary.filter(w => w.category === currentLevel && w.chapter === currentChapter);
+    }, [currentLevel, currentChapter]);
+
     const currentWord = useMemo(() => {
-        return vocabulary[currentQuestionIndex % vocabulary.length];
-    }, [currentQuestionIndex]);
+        if (filteredVocabulary.length === 0) return null;
+        return filteredVocabulary[currentQuestionIndex % filteredVocabulary.length];
+    }, [currentQuestionIndex, filteredVocabulary]);
 
     const options = useMemo(() => {
-        const distractors = vocabulary
+        if (!currentWord) return [];
+
+        const distractors = filteredVocabulary
             .filter(w => w.id !== currentWord.id)
             .sort(() => 0.5 - Math.random())
             .slice(0, 3);
 
         return [...distractors, currentWord].sort(() => 0.5 - Math.random());
-    }, [currentWord]);
+    }, [currentWord, filteredVocabulary]);
+
+    if (!currentWord) {
+        return <div className="p-8 text-center text-slate-500">No words found for this level.</div>;
+    }
 
     useEffect(() => {
         if (isGameOver) return;
@@ -39,6 +53,7 @@ export function TimeChallenge() {
                 if (prev <= 1) {
                     clearInterval(timerRef.current);
                     setIsGameOver(true);
+                    updateMissionProgress('finish_time_challenge', 1);
                     return 0;
                 }
                 return prev - 1;
@@ -57,12 +72,20 @@ export function TimeChallenge() {
         const isCorrect = wordId === currentWord.id;
 
         if (isCorrect) {
+            playSound('correct');
             const pointsEarned = 10 + Math.ceil(timeLeft / 5); // Bonus for time
             addPoints(pointsEarned);
-            setSessionPoints(prev => prev + pointsEarned);
+            setSessionPoints(prev => {
+                const newPoints = prev + pointsEarned;
+                if (newPoints >= 100) {
+                    updateMissionProgress('high_score_time_challenge', 1);
+                }
+                return newPoints;
+            });
             // Add time bonus
             setTimeLeft(prev => Math.min(60, prev + 3));
         } else {
+            playSound('wrong');
             // Penalty: deduct time
             setTimeLeft(prev => Math.max(0, prev - 5));
         }
@@ -118,11 +141,9 @@ export function TimeChallenge() {
     }
 
     return (
-        <div className="flex flex-col h-full bg-slate-50">
+        <div className="flex flex-col h-full bg-slate-50 overflow-hidden">
             <header className="p-4 flex items-center justify-between">
-                <Link to="/" className="p-2 hover:bg-slate-200 rounded-full transition-colors">
-                    <ArrowLeft className="w-6 h-6 text-slate-600" />
-                </Link>
+                <BackButton />
                 <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full shadow-sm border border-slate-200">
                     <Timer className={isAnswered ? "w-5 h-5 text-slate-400" : "w-5 h-5 text-indigo-600 animate-pulse"} />
                     <span className={`font-bold tabular-nums ${timeLeft < 10 ? 'text-red-500' : 'text-slate-800'}`}>{timeLeft}s</span>
@@ -135,16 +156,16 @@ export function TimeChallenge() {
                 <ProgressBar value={timeLeft} max={30} className="h-1.5" colorClass={timeLeft < 10 ? 'bg-red-500' : 'bg-indigo-500'} />
             </div>
 
-            <div className="flex-1 p-6 flex flex-col max-w-md mx-auto w-full">
+            <div className="flex-1 p-6 flex flex-col max-w-2xl mx-auto w-full justify-center">
                 <div className="mb-8 mt-4">
-                    <span className="text-sm font-semibold text-indigo-500 uppercase tracking-wider mb-2 block">Definition</span>
+                    <span className="text-sm font-semibold text-indigo-500 uppercase tracking-wider mb-2 block">Meaning</span>
                     <motion.h2
                         key={currentWord.id}
                         initial={{ opacity: 0, scale: 0.98 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="text-2xl font-bold text-slate-800 leading-tight"
+                        className="text-3xl font-bold text-slate-800 leading-tight"
                     >
-                        {currentWord.meaning}
+                        {currentWord.meaningKR}
                     </motion.h2>
                 </div>
 
