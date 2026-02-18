@@ -23,12 +23,13 @@ Follow this strict interaction flow:
 1.  **Start**: Introduce yourself as the Writing Tutor and ask the student for their desired difficulty level (Low / Mid / High).
 2.  **Wait**: Wait for the student to reply with the difficulty.
 3.  **Quiz Loop**:
-    a.  Provide a Korean sentence that matches the chosen difficulty. Ask the student to translate it into English.
-    b.  Wait for the student's English translation.
-    c.  **Judge**: Analyze their translation.
+    a.  **IMPORTANT**: Do NOT include any welcome message or pleasantries (e.g., "네, 알겠습니다", "시작하겠습니다"). Start data collection immediately.
+    b.  Provide a Korean sentence that matches the chosen difficulty. Ask the student to translate it into English.
+    c.  Wait for the student's English translation.
+    d.  **Judge**: Analyze their translation.
         -   If **Correct**: Praise them (in Korean) and explain *why* it is good or mention alternative natural expressions.
         -   If **Incorrect** or **Unnatural**: Correct the sentence. Explain the grammar/vocabulary mistake clearly in Korean.
-    d.  **Next**: Immediately provide the *next* Korean sentence to translate.
+    e.  **Next**: Immediately provide the *next* Korean sentence to translate.
 4.  **Tone**: Encouraging, educational, and professional. Always explain in Korean.
 `;
 
@@ -130,7 +131,7 @@ export function WritingCenter() {
             const isFirstInteraction = messages.length === 1 && messages[0].id === 'welcome';
 
             if (isFirstInteraction) {
-                const combinedPrompt = `${SYSTEM_INSTRUCTION}\n\n[System]: The user has selected the difficulty level: "${userText}". Start the session now by acknowledging this and providing the first Korean sentence to translate.`;
+                const combinedPrompt = `${SYSTEM_INSTRUCTION}\n\n[System]: The user has selected the difficulty level: "${userText}". Skip any welcome message. Start immediately by providing the first Korean sentence to translate.`;
                 result = await chatSession.current.sendMessage(combinedPrompt);
             } else {
                 result = await chatSession.current.sendMessage(userText);
@@ -247,7 +248,7 @@ export function WritingCenter() {
 
                                 {/* Message Bubble */}
                                 <div className={clsx(
-                                    "p-3 rounded-2xl shadow-sm border text-sm md:text-base leading-relaxed whitespace-pre-wrap break-words",
+                                    "p-3 rounded-2xl shadow-sm border text-sm md:text-base leading-relaxed whitespace-pre-wrap break-words overflow-x-hidden",
                                     msg.sender === 'user'
                                         ? "bg-indigo-600 text-white border-indigo-600 rounded-tr-none"
                                         : "bg-white text-slate-700 border-gray-100 rounded-tl-none"
