@@ -25,58 +25,18 @@ export function FallingWords() {
     const [lives, setLives] = useState(5);
     const [gameOver, setGameOver] = useState(false);
     const [gameWon, setGameWon] = useState(false); // Track if won
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [startTime, setStartTime] = useState<number | null>(null);
-    const [endTime, setEndTime] = useState<number | null>(null);
+    const [difficulty, setDifficulty] = useState<'easy' | 'normal' | 'hard'>('easy');
 
-    // Remaining words to spawn
-    const [remainingWords, setRemainingWords] = useState<typeof vocabulary>([]);
-
-    const gameLoopRef = useRef<number>();
-    const lastSpawnTime = useRef<number>(0);
-    const containerRef = useRef<HTMLDivElement>(null);
-    const [showExitConfirm, setShowExitConfirm] = useState(false);
-    const navigate = useNavigate();
-
-    const handleBackClick = () => {
-        if (isPlaying && !gameOver && !gameWon) {
-            setIsPlaying(false);
-            setShowExitConfirm(true);
-        } else {
-            navigate(-1);
-        }
-    };
-
-    const handleConfirmExit = () => {
-        navigate(-1);
-    };
-
-    const handleCancelExit = () => {
-        setShowExitConfirm(false);
-        setIsPlaying(true);
-    };
-
-    // Filter words for current level/chapter
-    const availableWords = React.useMemo(() =>
-        vocabulary.filter(w => w.category === currentLevel &&
-            w.chapter === currentChapter &&
-            (!currentGrade || w.grade === currentGrade)),
-        [currentLevel, currentGrade, currentChapter]);
+    // ... (existing state)
 
     const spawnWord = useCallback(() => {
-        if (remainingWords.length === 0) return;
-
-        // Pick random from REMAINING words
-        const randomIndex = Math.floor(Math.random() * remainingWords.length);
-        const randomWord = remainingWords[randomIndex];
-
-        // Remove from remaining
-        setRemainingWords(prev => prev.filter((_, i) => i !== randomIndex));
+        // ... (existing logic)
 
         const id = Date.now();
         const x = 20 + Math.random() * 60;
-        // Slower speed logic: 0.05 base + reduced multiplier
-        const baseSpeed = 0.05 + (score * 0.003);
+
+        // Base speed based on difficulty
+        const baseSpeed = difficulty === 'hard' ? 0.09 : difficulty === 'normal' ? 0.07 : 0.05;
 
         const textLength = randomWord.word.length;
         const clampedLength = Math.max(3, Math.min(10, textLength));
@@ -99,9 +59,15 @@ export function FallingWords() {
     const updateGame = useCallback(() => {
         if (gameOver || gameWon || !isPlaying) return;
 
+        // Helper to calculate spawn interval based on score
+        // Start: 2500ms (Slow) -> End: 800ms (Fast density, but slow fall)
+        const getSpawnInterval = () => {
+            return Math.max(800, 2500 - (score * 10)); // Reduces by 10ms per point
+        };
+
         const now = Date.now();
         // Check if we should spawn
-        if (remainingWords.length > 0 && now - lastSpawnTime.current > 2000) {
+        if (remainingWords.length > 0 && now - lastSpawnTime.current > getSpawnInterval()) {
             spawnWord();
             lastSpawnTime.current = now;
         }
@@ -260,6 +226,24 @@ export function FallingWords() {
                                     gameOver ? `Final Score: ${score}` :
                                         'Type the English word for the falling Korean meanings!'}
                             </p>
+
+                            {/* Difficulty Selector */}
+                            {!isPlaying && !gameWon && !gameOver && (
+                                <div className="flex gap-2 justify-center mb-6">
+                                    {(['easy', 'normal', 'hard'] as const).map((mode) => (
+                                        <button
+                                            key={mode}
+                                            onClick={() => setDifficulty(mode)}
+                                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${difficulty === mode
+                                                    ? 'bg-indigo-600 text-white'
+                                                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                                                }`}
+                                        >
+                                            {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
 
                             <button
                                 onClick={startGame}

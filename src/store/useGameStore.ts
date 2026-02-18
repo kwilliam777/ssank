@@ -283,21 +283,15 @@ export const useGameStore = create<GameState>()(
                     set({
                         points: 0,
                         streak: 0,
+                        badges: [], // Reset achievements
                         lastResetMonth: currentMonth
                     });
                 }
 
                 if (today !== lastLoginDate) {
                     // It's a new day! Calculate streak.
-                    const yesterday = new Date(todayDate);
-                    yesterday.setDate(yesterday.getDate() - 1);
-
-                    let newStreak = 1; // Default reset to 1
-
-                    // If login was yesterday, increment streak
-                    if (yesterday.toDateString() === lastLoginDate) {
-                        newStreak = streak + 1;
-                    }
+                    // Always increment streak on a new day (Monthly Visit Count)
+                    const newStreak = streak + 1;
 
                     set({
                         streak: newStreak,
