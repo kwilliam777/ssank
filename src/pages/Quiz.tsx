@@ -113,12 +113,23 @@ export function Quiz() {
         setSelectedOption(null);
         setIsCorrect(null);
 
-        // Generate options (1 correct + 3 random from SAME category/level/grade if possible)
-        const otherWords = vocabulary.filter(w =>
+        // Generate options (1 correct + 3 random from SAME category/level/grade/CHAPTER if possible)
+        let otherWords = vocabulary.filter(w =>
             w.id !== word.id &&
             w.category === currentLevel &&
+            w.chapter === currentChapter && // Added Chapter constraint
             (!currentGrade || w.grade === currentGrade)
         );
+
+        // Fallback: If chapter has too few words (< 3 distractors needed), widen search to Level
+        if (otherWords.length < 3) {
+            otherWords = vocabulary.filter(w =>
+                w.id !== word.id &&
+                w.category === currentLevel &&
+                (!currentGrade || w.grade === currentGrade)
+            );
+        }
+
         const randomDistractors = otherWords
             .sort(() => Math.random() - 0.5)
             .slice(0, 3)
@@ -344,10 +355,10 @@ export function Quiz() {
                             <span>Play Again</span>
                         </button>
                         <button
-                            onClick={() => navigate('/')}
+                            onClick={() => navigate('/chapters')} // Changed navigation to /chapters
                             className="block w-full py-4 text-slate-500 font-bold hover:bg-slate-100 rounded-xl transition-colors"
                         >
-                            Back to Home
+                            Back to Chapters
                         </button>
                     </div>
                 </div>
