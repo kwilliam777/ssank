@@ -19,7 +19,7 @@ interface Card {
 }
 
 export function PairMatching() {
-    const { currentLevel, currentGrade, currentChapter, addPoints, incrementStreak, resetStreak } = useGameStore();
+    const { currentLevel, currentGrade, currentChapter, addPoints, incrementStreak, resetStreak, setGameActive } = useGameStore();
     const [cards, setCards] = useState<Card[]>([]);
     const [flippedIndices, setFlippedIndices] = useState<number[]>([]);
     const [isProcessing, setIsProcessing] = useState(false); // Validating match
@@ -34,6 +34,13 @@ export function PairMatching() {
     // Exit Confirm
     const [showExitConfirm, setShowExitConfirm] = useState(false);
     const navigate = useNavigate();
+
+    // Sync global game active state
+    useEffect(() => {
+        const isGameRunning = cards.length > 0 && !gameWon;
+        setGameActive(isGameRunning);
+        return () => setGameActive(false);
+    }, [cards.length, gameWon, setGameActive]);
 
     const handleBackClick = () => {
         if (!gameWon && cards.length > 0) { // If game in progress

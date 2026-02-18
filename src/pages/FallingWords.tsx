@@ -18,7 +18,7 @@ interface FallingWord {
 }
 
 export function FallingWords() {
-    const { currentLevel, currentGrade, currentChapter, addPoints, incrementStreak, resetStreak } = useGameStore();
+    const { currentLevel, currentGrade, currentChapter, addPoints, incrementStreak, resetStreak, setGameActive } = useGameStore();
     const [words, setWords] = useState<FallingWord[]>([]);
     const [input, setInput] = useState('');
     const [score, setScore] = useState(0);
@@ -27,10 +27,59 @@ export function FallingWords() {
     const [gameWon, setGameWon] = useState(false); // Track if won
     const [difficulty, setDifficulty] = useState<'easy' | 'normal' | 'hard'>('easy');
 
-    // ... (existing state)
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [startTime, setStartTime] = useState<number | null>(null);
+    const [endTime, setEndTime] = useState<number | null>(null);
+
+    // Remaining words to spawn
+    const [remainingWords, setRemainingWords] = useState<typeof vocabulary>([]);
+
+    const gameLoopRef = useRef<number>();
+    const lastSpawnTime = useRef<number>(0);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [showExitConfirm, setShowExitConfirm] = useState(false);
+    const navigate = useNavigate();
+
+    // Sync global game active state
+    useEffect(() => {
+        setGameActive(isPlaying);
+        return () => setGameActive(false);
+    }, [isPlaying, setGameActive]);
+
+    const handleBackClick = () => {
+        if (isPlaying && !gameOver && !gameWon) {
+            setIsPlaying(false);
+            setShowExitConfirm(true);
+        } else {
+            navigate(-1);
+        }
+    };
+
+    const handleConfirmExit = () => {
+        navigate(-1);
+    };
+
+    const handleCancelExit = () => {
+        setShowExitConfirm(false);
+        setIsPlaying(true);
+    };
+
+    // Filter words for current level/chapter
+    const availableWords = React.useMemo(() =>
+        vocabulary.filter(w => w.category === currentLevel &&
+            w.chapter === currentChapter &&
+            (!currentGrade || w.grade === currentGrade)),
+        [currentLevel, currentGrade, currentChapter]);
 
     const spawnWord = useCallback(() => {
-        // ... (existing logic)
+        if (remainingWords.length === 0) return;
+
+        // Pick random from REMAINING words
+        const randomIndex = Math.floor(Math.random() * remainingWords.length);
+        const randomWord = remainingWords[randomIndex];
+
+        // Remove from remaining
+        setRemainingWords(prev => prev.filter((_, i) => i !== randomIndex));
 
         const id = Date.now();
         const x = 20 + Math.random() * 60;
@@ -138,6 +187,12 @@ export function FallingWords() {
         }
     };
 
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            setInput('');
+        }
+    };
+
     const startGame = () => {
         setWords([]);
         setScore(0);
@@ -235,8 +290,8 @@ export function FallingWords() {
                                             key={mode}
                                             onClick={() => setDifficulty(mode)}
                                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${difficulty === mode
-                                                    ? 'bg-indigo-600 text-white'
-                                                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                                                ? 'bg-indigo-600 text-white'
+                                                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                                                 }`}
                                         >
                                             {mode.charAt(0).toUpperCase() + mode.slice(1)}
@@ -264,6 +319,7 @@ export function FallingWords() {
                         type="text"
                         value={input}
                         onChange={handleInputChange}
+                        onKeyDown={handleKeyDown}
                         placeholder={isPlaying ? "Type English word..." : ""}
                         disabled={!isPlaying || gameOver || gameWon}
                         className="w-full bg-slate-700 text-white placeholder-slate-400 border border-slate-600 rounded-xl px-4 py-3 text-center text-lg font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"

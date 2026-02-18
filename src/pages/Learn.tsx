@@ -4,29 +4,22 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { Card } from '../components/Card';
 import { vocabulary } from '../data/vocabulary';
-import { ChevronRight, ArrowLeft } from 'lucide-react';
+import { ChevronRight, ArrowLeft, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useGameStore } from '../store/useGameStore';
 import { BackButton } from '../components/BackButton';
 
 export function Learn() {
-    const { addPoints, updateMissionProgress, currentLevel, currentChapter, currentGrade, saveSessionProgress, getSessionProgress, clearSessionProgress } = useGameStore();
+    const { addPoints, updateMissionProgress, currentLevel, currentChapter, currentGrade, saveSessionProgress, getSessionProgress, clearSessionProgress, wrongAnswers, resetWrongAnswer } = useGameStore();
+    const [showWrongOnly, setShowWrongOnly] = useState(false);
 
     const filteredVocabulary = React.useMemo(() => {
-        return vocabulary
-            .filter(w => w.category === currentLevel && w.chapter === currentChapter && (!currentGrade || w.grade === currentGrade))
-        // .sort(() => 0.5 - Math.random()) // Remove random sort to keep order consistent for resume?
-        // Actually, if we shuffle, we can't easily resume unless we save the shuffled order.
-        // For now, let's keep it simple: Resume works best with consistent order.
-        // Or we save the seed/order.
-        // Let's remove shuffle for learn mode to make it consistent 'book' style?
-        // User didn't specify, but shuffle is usually good for flashcards.
-        // If shuffled, we need to save the shuffled indices or the deck.
-        // But storing the whole deck in local storage is heavy.
-        // Let's stick to non-shuffled for now OR just save the index and hope the shuffle seed is roughly same? No, random is random.
-        // Strategy: For "Resume", we really need deterministic order.
-        // Let's remove sort for now to enable reliable resume.
-        //.sort(() => 0.5 - Math.random());
-    }, [currentLevel, currentChapter, currentGrade]);
+        let words = vocabulary.filter(w => w.category === currentLevel && w.chapter === currentChapter && (!currentGrade || w.grade === currentGrade));
+
+        if (showWrongOnly) {
+            words = words.filter(w => (wrongAnswers[w.id] || 0) > 0);
+        }
+        return words;
+    }, [currentLevel, currentChapter, currentGrade, showWrongOnly, wrongAnswers]);
 
     const navigate = useNavigate();
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -157,16 +150,26 @@ export function Learn() {
                     <span className="text-xs text-slate-500">{currentLevel} - Ch.{currentChapter}</span>
                 </div>
 
-                <button
-                    onClick={handleRestart}
-                    className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
-                    title="Restart"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                        <path d="M3 3v5h5" />
-                    </svg>
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => {
+                            setShowWrongOnly(!showWrongOnly);
+                            setCurrentIndex(0); // Reset index when toggling
+                        }}
+                        className={`p-2 rounded-full transition-colors flex items-center gap-1 ${showWrongOnly ? 'bg-red-100 text-red-600' : 'text-slate-400 hover:text-red-500'}`}
+                        title={showWrongOnly ? "Show All Words" : "Show Wrong Answers Only"}
+                    >
+                        <AlertTriangle className="w-5 h-5" />
+                        {showWrongOnly && <span className="text-xs font-bold pr-1">Wrong Notes</span>}
+                    </button>
+                    <button
+                        onClick={handleRestart}
+                        className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
+                        title="Restart"
+                    >
+                        <RefreshCw className="w-5 h-5" />
+                    </button>
+                </div>
             </header>
 
             {/* Flashcard Area */}
@@ -195,7 +198,24 @@ export function Learn() {
                             exit={{ x: -50, opacity: 0, scale: 0.95 }}
                             transition={{ duration: 0.2 }}
                         >
-                            <Card word={currentWord} className="w-full h-full" />
+                            <Card
+                                word={currentWord}
+                                className="w-full h-full"
+                                wrongCount={wrongAnswers[currentWord.id] || 0}
+                                onRemove={
+                                    (wrongAnswers[currentWord.id] || 0) > 0
+                                        ? () => {
+                                            resetWrongAnswer(currentWord.id);
+                                            // If filtering by wrong, this word will disappear. 
+                                            // We might need to adjust index if it was the last one?
+                                            // React state update might handle it, but let's be safe.
+                                            if (currentIndex >= filteredVocabulary.length - 1 && currentIndex > 0) {
+                                                setCurrentIndex(prev => Math.max(0, prev - 1));
+                                            }
+                                        }
+                                        : undefined
+                                }
+                            />
                         </motion.div>
                     </AnimatePresence>
                 </div>

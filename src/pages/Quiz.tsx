@@ -24,7 +24,8 @@ export function Quiz() {
         getSessionProgress,
         clearSessionProgress,
         recordChapterSuccess,
-        chapterStats
+        chapterStats,
+        incrementWrongAnswer
     } = useGameStore();
 
     // Quiz Mode Selection
@@ -210,6 +211,7 @@ export function Quiz() {
             playSound('wrong');
             resetStreak();
             setStreakCount(0);
+            incrementWrongAnswer(currentWord.id);
         }
     };
 

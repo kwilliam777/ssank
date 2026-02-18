@@ -6,6 +6,8 @@ import { playSound } from '../utils/sound';
 import { motion } from 'framer-motion';
 import { CheckCircle, XCircle, Trophy } from 'lucide-react';
 import clsx from 'clsx';
+import { useNavigate } from 'react-router-dom';
+import { ExitConfirmModal } from '../components/ExitConfirmModal';
 
 // Simple shuffle function
 const shuffleString = (str: string) => {
@@ -18,7 +20,8 @@ const shuffleString = (str: string) => {
 };
 
 export function WordScramble() {
-    const { currentLevel, currentGrade, currentChapter, addPoints, incrementStreak, resetStreak } = useGameStore();
+    const { currentLevel, currentGrade, currentChapter, addPoints, incrementStreak, resetStreak, setGameActive } = useGameStore();
+    const navigate = useNavigate();
     const [currentWord, setCurrentWord] = useState<typeof vocabulary[0] | null>(null);
     const [scrambledButtons, setScrambledButtons] = useState<{ id: string; char: string; isUsed: boolean }[]>([]);
 
@@ -34,6 +37,33 @@ export function WordScramble() {
     const [gameCompleted, setGameCompleted] = useState(false);
     const [startTime, setStartTime] = useState<number | null>(null);
     const [endTime, setEndTime] = useState<number | null>(null);
+
+    const [showExitConfirm, setShowExitConfirm] = useState(false);
+
+    // Update global game active state
+    useEffect(() => {
+        const isPlaying = gameStarted && !gameCompleted;
+        setGameActive(isPlaying);
+        return () => setGameActive(false);
+    }, [gameStarted, gameCompleted, setGameActive]);
+
+    const handleBackClick = () => {
+        if (gameStarted && !gameCompleted) {
+            setShowExitConfirm(true);
+        } else {
+            navigate(-1);
+        }
+    };
+
+    const confirmExit = () => {
+        setGameActive(false);
+        setShowExitConfirm(false);
+        navigate(-1);
+    };
+
+    const cancelExit = () => {
+        setShowExitConfirm(false);
+    };
 
     // Filter words
     const availableWords = React.useMemo(() =>
@@ -181,7 +211,7 @@ export function WordScramble() {
     if (!gameStarted) {
         return (
             <div className="flex flex-col h-full bg-slate-50 items-center justify-center p-8 text-center relative">
-                <BackButton className="absolute top-4 left-4" />
+                <BackButton className="absolute top-4 left-4" onClick={handleBackClick} />
                 <h1 className="text-3xl font-bold text-slate-800 mb-2">Word Scramble</h1>
                 <p className="text-slate-500 mb-8">Unscramble all {availableWords.length} words in this chapter!</p>
                 <button
@@ -224,9 +254,16 @@ export function WordScramble() {
 
     return (
         <div className="flex flex-col h-full bg-slate-50">
+            <ExitConfirmModal
+                isOpen={showExitConfirm}
+                onConfirm={confirmExit}
+                onCancel={cancelExit}
+                title="Exit Game?"
+                message="Your progress in this chapter will be lost."
+            />
             {/* Header */}
             <div className="flex items-center justify-between p-4 bg-white shadow-sm z-10">
-                <BackButton />
+                <BackButton onClick={handleBackClick} />
                 <div className="flex flex-col items-center">
                     <span className="font-bold text-slate-800">Word Scramble</span>
                     <span className="text-xs text-slate-500">{remainingWords.length + 1} remaining</span>

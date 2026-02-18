@@ -9,7 +9,7 @@ import { playSound } from '../utils/sound';
 
 export function Dictation() {
     const navigate = useNavigate();
-    const { currentLevel, currentGrade, currentChapter, addPoints, updateMissionProgress, incrementStreak, resetStreak, saveSessionProgress, getSessionProgress, clearSessionProgress, recordChapterSuccess } = useGameStore();
+    const { currentLevel, currentGrade, currentChapter, addPoints, updateMissionProgress, incrementStreak, resetStreak, saveSessionProgress, getSessionProgress, clearSessionProgress, recordChapterSuccess, incrementWrongAnswer } = useGameStore();
 
     const [input, setInput] = useState('');
     const [feedback, setFeedback] = useState<'idle' | 'correct' | 'wrong'>('idle');
@@ -138,6 +138,7 @@ export function Dictation() {
             setFeedback('wrong');
             playSound('wrong');
             resetStreak();
+            incrementWrongAnswer(currentWord.id);
             setTimeout(() => setFeedback('idle'), 1000);
         }
     };

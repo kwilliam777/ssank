@@ -82,12 +82,17 @@ interface GameState {
         quiz_ko_en: boolean;
         quiz_context: boolean;
         quiz_meaning: boolean;
-        // Keep generic quiz for backward compatibility or direct access if needed, 
-        // but broadly we should use the specific ones. 
-        // For simplicity in UI, we can calculate 'quiz' completion on the fly.
-        // Let's remove the generic 'quiz' key from the type to force update.
     }>;
     recordChapterSuccess: (mode: 'dictation' | 'quiz_ko_en' | 'quiz_context' | 'quiz_meaning') => void;
+
+    // Global Game State (for navigation blocking)
+    isGameActive: boolean;
+    setGameActive: (isActive: boolean) => void;
+
+    // Wrong Answer Note
+    wrongAnswers: Record<string, number>; // wordId -> count
+    incrementWrongAnswer: (wordId: string) => void;
+    resetWrongAnswer: (wordId: string) => void;
 }
 
 const DEFAULT_MISSIONS: DailyMission[] = [
@@ -126,6 +131,7 @@ const debouncedSync = (state: GameState) => {
                 schoolName: state.userData.schoolName,
                 lastResetMonth: state.lastResetMonth,
                 chapterStats: state.chapterStats,
+                wrongAnswers: state.wrongAnswers,
                 lastUpdated: new Date().toISOString()
             };
             await setDoc(userRef, dataToSave, { merge: true });
@@ -370,6 +376,7 @@ export const useGameStore = create<GameState>()(
                             currentChapter: data.currentChapter,
                             lastResetMonth: data.lastResetMonth !== undefined ? data.lastResetMonth : new Date().getMonth(),
                             chapterStats: data.chapterStats || {},
+                            wrongAnswers: data.wrongAnswers || {},
                             userData: {
                                 uid: uid,
                                 email: null, // We might not have this in stored data unless we auth again
@@ -459,6 +466,24 @@ export const useGameStore = create<GameState>()(
                     });
                 }
             },
+
+            // Global Game State
+            isGameActive: false,
+            setGameActive: (isActive) => set({ isGameActive: isActive }),
+
+            // Wrong Answer Note
+            wrongAnswers: {},
+            incrementWrongAnswer: (wordId: string) => set((state) => ({
+                wrongAnswers: {
+                    ...state.wrongAnswers,
+                    [wordId]: (state.wrongAnswers[wordId] || 0) + 1
+                }
+            })),
+            resetWrongAnswer: (wordId: string) => set((state) => {
+                const newWrongAnswers = { ...state.wrongAnswers };
+                delete newWrongAnswers[wordId];
+                return { wrongAnswers: newWrongAnswers };
+            }),
         }),
         {
             name: 'ssank-game-storage',

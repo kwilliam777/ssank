@@ -1,39 +1,76 @@
-import React, { useEffect } from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { BookOpen, Home as HomeIcon, Trophy, User, BrainCircuit, Flame, Star, Timer, Keyboard, Gamepad2, Sparkles } from 'lucide-react';
 import clsx from 'clsx';
 import { useGameStore } from '../store/useGameStore';
 import { ProgressBar } from './ProgressBar';
+import { ExitConfirmModal } from './ExitConfirmModal';
 
-const NavItem = ({ to, icon: Icon, label }: { to: string; icon: React.ElementType; label: string }) => {
+const NavItem = ({ to, icon: Icon, label, onNavClick }: { to: string; icon: React.ElementType; label: string; onNavClick: (e: React.MouseEvent, path: string) => void }) => {
     const location = useLocation();
     const isActive = location.pathname === to;
 
     return (
-        <Link
-            to={to}
+        <a
+            href={to}
+            onClick={(e) => onNavClick(e, to)}
             className={clsx(
-                "flex md:flex-row flex-col items-center md:justify-start justify-center w-full md:px-4 py-2 text-xs md:text-sm font-medium transition-colors duration-200 md:rounded-lg",
+                "flex md:flex-row flex-col items-center md:justify-start justify-center w-full md:px-4 py-2 text-xs md:text-sm font-medium transition-colors duration-200 md:rounded-lg cursor-pointer",
                 isActive ? "text-indigo-600 md:bg-indigo-50" : "text-gray-500 hover:text-indigo-400 md:hover:bg-gray-50"
             )}
         >
             <Icon className={clsx("w-6 h-6 md:w-5 md:h-5 md:mr-3 mb-1 md:mb-0", isActive && "fill-current md:fill-none")} strokeWidth={isActive ? 2.5 : 2} />
             <span>{label}</span>
-        </Link>
+        </a>
     );
 };
 
 export function Layout() {
-    const { points, level, streak, xp, xpToNextLevel, checkDailyReset } = useGameStore();
+    const { points, level, streak, xp, xpToNextLevel, checkDailyReset, isGameActive, setGameActive } = useGameStore();
     const location = useLocation();
+    const navigate = useNavigate();
     const isWritingCenter = location.pathname === '/writing-center';
+
+    const [showExitConfirm, setShowExitConfirm] = useState(false);
+    const [pendingPath, setPendingPath] = useState<string | null>(null);
 
     useEffect(() => {
         checkDailyReset();
     }, [checkDailyReset]);
 
+    const handleNavClick = (e: React.MouseEvent, path: string) => {
+        e.preventDefault();
+        if (isGameActive) {
+            setPendingPath(path);
+            setShowExitConfirm(true);
+        } else {
+            navigate(path);
+        }
+    };
+
+    const confirmNavigation = () => {
+        setGameActive(false);
+        setShowExitConfirm(false);
+        if (pendingPath) {
+            navigate(pendingPath);
+            setPendingPath(null);
+        }
+    };
+
+    const cancelNavigation = () => {
+        setShowExitConfirm(false);
+        setPendingPath(null);
+    };
+
     return (
         <div className="flex h-[100dvh] bg-gray-50 text-gray-900 font-sans overflow-hidden">
+            <ExitConfirmModal
+                isOpen={showExitConfirm}
+                onConfirm={confirmNavigation}
+                onCancel={cancelNavigation}
+                title="Leave Game?"
+                message="You are currently playing a game. Progress will be lost if you leave."
+            />
             {/* Desktop Side Navigation */}
             <aside className="hidden md:flex flex-col w-64 bg-white border-r border-gray-200 h-full p-6">
                 <div className="flex items-center gap-3 mb-10 px-2">
@@ -44,18 +81,19 @@ export function Layout() {
                 </div>
 
                 <nav className="flex-1 space-y-2">
-                    <NavItem to="/" icon={HomeIcon} label="Home" />
-                    <NavItem to="/learn" icon={BookOpen} label="Learn" />
-                    <NavItem to="/quiz" icon={BrainCircuit} label="Quiz" />
-                    <NavItem to="/dictation" icon={Keyboard} label="Dictation" />
-                    <NavItem to="/time-challenge" icon={Timer} label="Time Challenge" />
-                    <NavItem to="/games" icon={Gamepad2} label="Arcade Games" />
+                    <NavItem to="/" icon={HomeIcon} label="Home" onNavClick={handleNavClick} />
+                    <NavItem to="/learn" icon={BookOpen} label="Flashcards" onNavClick={handleNavClick} />
+                    <NavItem to="/quiz" icon={BrainCircuit} label="Quiz" onNavClick={handleNavClick} />
+                    <NavItem to="/dictation" icon={Keyboard} label="Dictation" onNavClick={handleNavClick} />
+                    <NavItem to="/time-challenge" icon={Timer} label="Time Challenge" onNavClick={handleNavClick} />
+                    <NavItem to="/games" icon={Gamepad2} label="Arcade Games" onNavClick={handleNavClick} />
 
                     {/* PC Writing Center */}
-                    <Link
-                        to="/writing-center"
+                    <a
+                        href="/writing-center"
+                        onClick={(e) => handleNavClick(e, '/writing-center')}
                         className={clsx(
-                            "flex items-center w-full px-4 py-2 text-sm font-medium transition-colors duration-200 rounded-lg",
+                            "flex items-center w-full px-4 py-2 text-sm font-medium transition-colors duration-200 rounded-lg cursor-pointer",
                             location.pathname === '/writing-center'
                                 ? "bg-gradient-to-r from-purple-100 to-indigo-100 text-purple-700 border border-purple-200"
                                 : "text-gray-500 hover:bg-purple-50 hover:text-purple-600"
@@ -64,10 +102,10 @@ export function Layout() {
                         <Sparkles className={clsx("w-5 h-5 mr-3", location.pathname === '/writing-center' ? "text-purple-600 fill-purple-200" : "text-purple-400")} />
                         <span>Writing Center</span>
                         <span className="ml-auto text-[10px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full font-bold">AI</span>
-                    </Link>
+                    </a>
 
-                    <NavItem to="/leaderboard" icon={Trophy} label="Rank" />
-                    <NavItem to="/profile" icon={User} label="Profile" />
+                    <NavItem to="/leaderboard" icon={Trophy} label="Rank" onNavClick={handleNavClick} />
+                    <NavItem to="/profile" icon={User} label="Profile" onNavClick={handleNavClick} />
                 </nav>
 
                 <div className="p-4 bg-indigo-50 rounded-xl mt-auto">
@@ -134,11 +172,12 @@ export function Layout() {
                 */}
                 <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 safe-area-bottom z-50">
                     <div className="flex justify-around items-center h-16">
-                        <NavItem to="/" icon={HomeIcon} label="Home" />
+                        <NavItem to="/" icon={HomeIcon} label="Home" onNavClick={handleNavClick} />
 
                         {/* Mobile Writing Center */}
-                        <Link
-                            to="/writing-center"
+                        <a
+                            href="/writing-center"
+                            onClick={(e) => handleNavClick(e, '/writing-center')}
                             className="flex flex-col items-center justify-center w-full h-full text-xs font-medium text-purple-600"
                         >
                             <div className={clsx(
@@ -148,10 +187,10 @@ export function Layout() {
                                 <Sparkles className="w-5 h-5 fill-current" />
                             </div>
                             <span className="text-[10px] font-bold">Writing(AI)</span>
-                        </Link>
+                        </a>
 
-                        <NavItem to="/leaderboard" icon={Trophy} label="Rank" />
-                        <NavItem to="/profile" icon={User} label="Profile" />
+                        <NavItem to="/leaderboard" icon={Trophy} label="Rank" onNavClick={handleNavClick} />
+                        <NavItem to="/profile" icon={User} label="Profile" onNavClick={handleNavClick} />
                     </div>
                 </nav>
             </div>
