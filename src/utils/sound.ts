@@ -4,7 +4,7 @@ const audioCtx = new AudioContextClass();
 
 import { useGameStore } from '../store/useGameStore';
 
-export const playSound = (type: 'correct' | 'wrong') => {
+export const playSound = (type: 'correct' | 'wrong' | 'click') => {
     // Check mute state directly from store (outside component)
     if (useGameStore.getState().isMuted) return;
 
@@ -27,7 +27,7 @@ export const playSound = (type: 'correct' | 'wrong') => {
         gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
         oscillator.start();
         oscillator.stop(audioCtx.currentTime + 0.5);
-    } else {
+    } else if (type === 'wrong') {
         // Low pitched "buzz"
         oscillator.type = 'sawtooth';
         oscillator.frequency.setValueAtTime(150, audioCtx.currentTime);
@@ -36,5 +36,13 @@ export const playSound = (type: 'correct' | 'wrong') => {
         gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
         oscillator.start();
         oscillator.stop(audioCtx.currentTime + 0.3);
+    } else if (type === 'click') {
+        // Simple neat click (short high freq blip)
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + 0.05);
     }
 };

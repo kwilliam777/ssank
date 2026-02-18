@@ -11,6 +11,11 @@ import { Leaderboard } from './pages/Leaderboard';
 import { ChapterSelection } from './pages/ChapterSelection';
 import { ModeSelection } from './pages/ModeSelection';
 import { FallingWords } from './pages/FallingWords';
+import { GameSelection } from './pages/GameSelection';
+import { WordScramble } from './pages/WordScramble';
+import { PairMatching } from './pages/PairMatching';
+import { GradeSelection } from './pages/GradeSelection';
+import { WritingCenter } from './pages/WritingCenter';
 
 
 import { Login } from './pages/Login';
@@ -40,13 +45,18 @@ function App() {
           </ProtectedRoute>
         }>
           <Route index element={<Home />} />
+          <Route path="grades" element={<GradeSelection />} />
           <Route path="chapters" element={<ChapterSelection />} />
           <Route path="modes" element={<ModeSelection />} />
           <Route path="learn" element={<Learn />} />
           <Route path="quiz" element={<Quiz />} />
           <Route path="dictation" element={<Dictation />} />
           <Route path="time-challenge" element={<TimeChallenge />} />
+          <Route path="games" element={<GameSelection />} />
           <Route path="falling-words" element={<FallingWords />} />
+          <Route path="word-scramble" element={<WordScramble />} />
+          <Route path="pair-matching" element={<PairMatching />} />
+          <Route path="writing-center" element={<WritingCenter />} />
           <Route path="profile" element={<Profile />} />
           <Route path="leaderboard" element={<Leaderboard />} />
         </Route>

@@ -76,33 +76,34 @@ export function Leaderboard() {
 
     return (
         <div className="flex flex-col h-full bg-slate-50 pb-20">
-            <header className="bg-indigo-600 text-white p-4 pb-6 rounded-b-2xl shadow-lg z-10 relative overflow-hidden shrink-0">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <Trophy className="w-6 h-6 text-yellow-300 filter drop-shadow-md" />
-                        <h1 className="text-lg font-bold">Leaderboard</h1>
-                    </div>
-
-                    {/* Compact Filters */}
-                    <div className="flex bg-indigo-800/50 p-1 rounded-lg backdrop-blur-sm">
-                        {(['Learners', 'School'] as const).map((f) => (
-                            <button
-                                key={f}
-                                onClick={() => setFilter(f)}
-                                className={clsx(
-                                    "px-3 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-1.5",
-                                    filter === f ? "bg-white text-indigo-900 shadow-sm" : "text-indigo-200 hover:text-white"
-                                )}
-                            >
-                                {f === 'School' ? <School className="w-3 h-3" /> : <User className="w-3 h-3" />}
-                                {f}
-                            </button>
-                        ))}
-                    </div>
+            <header className="bg-indigo-600 text-white p-4 pb-8 rounded-b-3xl shadow-lg z-10 relative overflow-hidden shrink-0">
+                <div className="flex flex-col items-center">
+                    <Trophy className="w-8 h-8 text-yellow-300 mb-1 filter drop-shadow-md" />
+                    <h1 className="text-xl font-bold">Leaderboard</h1>
                 </div>
+
+                {/* Filters */}
+                <div className="flex justify-center mt-4 bg-indigo-800/50 p-1 rounded-xl backdrop-blur-sm">
+                    {(['Learners', 'School'] as const).map((f) => (
+                        <button
+                            key={f}
+                            onClick={() => setFilter(f)}
+                            className={clsx(
+                                "px-4 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-2",
+                                filter === f ? "bg-white text-indigo-900 shadow-sm" : "text-indigo-200 hover:text-white"
+                            )}
+                        >
+                            {f === 'School' ? <School className="w-3.5 h-3.5" /> : <User className="w-3.5 h-3.5" />}
+                            {f}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+                <div className="absolute bottom-0 left-0 -mb-4 -ml-4 w-32 h-32 bg-indigo-400/20 rounded-full blur-xl pointer-events-none" />
             </header>
 
-            <div className="flex-1 overflow-y-auto px-4 py-4 z-0">
+            <div className="flex-1 overflow-y-auto px-4 -mt-4 z-20">
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden min-h-full">
                     {loading ? (
                         <div className="p-8 text-center text-gray-500">Loading rankings...</div>

@@ -72,21 +72,27 @@ export const Card: React.FC<CardProps> = ({ word, className }) => {
             >
                 {/* Front (English) */}
                 <div className="absolute w-full h-full backface-hidden bg-white border-2 border-indigo-100 rounded-3xl shadow-xl overflow-hidden">
-                    <div className="flex flex-col items-center justify-center p-8 text-center h-full relative">
+                    <div className="flex flex-col items-center justify-center p-8 text-center h-full relative overflow-y-auto">
                         {/* Audio Button */}
-                        <button
-                            onClick={handleSpeak}
-                            className="absolute top-4 right-4 p-3 bg-indigo-50 text-indigo-500 rounded-full hover:bg-indigo-100 transition-colors z-10"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
-                                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
-                            </svg>
-                        </button>
+                        <div className={clsx("transition-opacity duration-300 absolute top-4 right-4 z-10", isFlipped ? "opacity-0 pointer-events-none" : "opacity-100")}>
+                            <button
+                                onClick={handleSpeak}
+                                className="p-3 bg-indigo-50 text-indigo-500 rounded-full hover:bg-indigo-100 transition-colors"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+                                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+                                </svg>
+                            </button>
+                        </div>
 
-                        <span className="text-sm font-semibold text-indigo-500 mb-8 tracking-wider uppercase">English</span>
-                        <h2 className="text-4xl font-bold text-slate-800 break-words">{word.word}</h2>
+                        <span className="text-sm font-semibold text-indigo-500 mb-4 tracking-wider uppercase mt-8">English</span>
+                        <h2 className={clsx(
+                            "font-bold text-slate-800 break-words transition-all duration-300 max-w-full",
+                            word.word.length > 12 ? "text-2xl" :
+                                word.word.length > 8 ? "text-3xl" : "text-4xl"
+                        )}>{word.word}</h2>
                         <p className="mt-8 text-slate-400 text-sm">Tap to flip</p>
                     </div>
                 </div>

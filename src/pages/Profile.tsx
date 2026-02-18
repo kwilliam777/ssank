@@ -2,17 +2,20 @@ import React, { useState, useRef } from 'react';
 import { useGameStore } from '../store/useGameStore';
 import { Badge } from '../components/Badge';
 import { achievements } from '../data/achievements';
-import { User, LogOut, Edit2, Camera, School, Settings, Volume2, VolumeX, Mail } from 'lucide-react';
+import { User, LogOut, Edit2, Camera, School, Settings, Volume2, VolumeX, Mail, Bell, X } from 'lucide-react';
 import { auth } from '../lib/firebase';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import clsx from 'clsx';
 
 export function Profile() {
-    const { points, level, streak, badges, userData, updateProfile, logout, isMuted, toggleMute } = useGameStore();
+    const { points, level, streak, badges, userData, updateProfile, logout, isMuted, toggleMute, notification, updateNotification, clearNotification } = useGameStore();
     const navigate = useNavigate();
     const [isEditing, setIsEditing] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
+    const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+    const [notificationText, setNotificationText] = useState('');
     const [editName, setEditName] = useState(userData.displayName || '');
     const [editSchool, setEditSchool] = useState(userData.schoolName || '');
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -35,6 +38,31 @@ export function Profile() {
         setIsEditing(false);
     };
 
+    const handleSaveNotification = async () => {
+        if (notificationText.trim()) {
+            await updateNotification(notificationText);
+            setIsNotificationModalOpen(false);
+            alert("Notification updated!");
+        }
+    };
+
+    const handleClearNotification = async () => {
+        if (window.confirm("Are you sure you want to clear the current notification?")) {
+            await clearNotification();
+            setIsNotificationModalOpen(false);
+            alert("Notification cleared!");
+        }
+    };
+
+    const openNotificationModal = () => {
+        setNotificationText(notification?.content || '');
+        setIsNotificationModalOpen(true);
+        // Do not close settings, keep navigation flow? 
+        // Or close parent menus. 
+        setIsAdminMenuOpen(false);
+        setIsSettingsOpen(false);
+    };
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
@@ -52,8 +80,99 @@ export function Profile() {
         }
     };
 
+    const isAdmin = auth.currentUser?.email === 'kwilliam777@gmail.com';
+
     return (
         <div className="bg-slate-50 min-h-full pb-24 relative">
+            {/* Admin Menu Modal */}
+            <AnimatePresence>
+                {isAdminMenuOpen && (
+                    <>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsAdminMenuOpen(false)}
+                            className="fixed inset-0 bg-black/50 z-[60] backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="fixed inset-0 m-auto w-full max-w-sm h-fit bg-white rounded-3xl shadow-2xl z-[60] p-6 overflow-hidden"
+                        >
+                            <div className="flex items-center justify-between mb-6">
+                                <h2 className="text-xl font-bold text-gray-900">Admin Settings</h2>
+                                <button onClick={() => setIsAdminMenuOpen(false)} className="p-2 hover:bg-gray-100 rounded-full text-gray-500">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            <div className="space-y-4">
+                                <button
+                                    onClick={openNotificationModal}
+                                    className="w-full flex items-center gap-3 p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors"
+                                >
+                                    <div className="p-2 bg-white rounded-full shadow-sm text-indigo-500">
+                                        <Bell className="w-5 h-5" />
+                                    </div>
+                                    <span className="font-semibold text-slate-700">Admin Notification</span>
+                                </button>
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+
+            {/* Notification Editor Modal */}
+            <AnimatePresence>
+                {isNotificationModalOpen && (
+                    <>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsNotificationModalOpen(false)}
+                            className="fixed inset-0 bg-black/50 z-[60] backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="fixed inset-0 m-auto w-full max-w-sm h-fit bg-white rounded-3xl shadow-2xl z-[60] p-6 overflow-hidden"
+                        >
+                            <h2 className="text-xl font-bold text-gray-900 mb-4">Edit Notification</h2>
+                            <textarea
+                                className="w-full h-32 p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none mb-4"
+                                placeholder="Enter notification message..."
+                                value={notificationText}
+                                onChange={(e) => setNotificationText(e.target.value)}
+                            />
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleClearNotification}
+                                    className="flex-1 py-2 bg-red-50 text-red-600 font-medium hover:bg-red-100 rounded-xl transition-colors border border-red-100"
+                                >
+                                    Clear
+                                </button>
+                                <button
+                                    onClick={() => setIsNotificationModalOpen(false)}
+                                    className="flex-1 py-2 text-gray-500 font-medium hover:bg-gray-100 rounded-xl transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleSaveNotification}
+                                    className="flex-1 py-2 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
+                                >
+                                    Post
+                                </button>
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+
             {/* Settings Modal */}
             <AnimatePresence>
                 {isSettingsOpen && (
@@ -105,6 +224,25 @@ export function Profile() {
                                         <div className={clsx("bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform duration-200", isMuted ? "translate-x-0" : "translate-x-6")} />
                                     </div>
                                 </button>
+
+                                {/* Admin Settings Button */}
+                                {isAdmin && (
+                                    <button
+                                        onClick={() => {
+                                            setIsAdminMenuOpen(true);
+                                            setIsSettingsOpen(false);
+                                        }}
+                                        className="w-full flex items-center gap-3 p-4 bg-amber-50 rounded-xl hover:bg-amber-100 transition-colors border border-amber-100"
+                                    >
+                                        <div className="p-2 bg-white rounded-full shadow-sm text-amber-500">
+                                            <Settings className="w-5 h-5" />
+                                        </div>
+                                        <div className="text-left">
+                                            <p className="font-semibold text-slate-800">Admin Settings</p>
+                                            <p className="text-xs text-slate-500">Manage application</p>
+                                        </div>
+                                    </button>
+                                )}
 
                                 {/* Logout */}
                                 <button
@@ -207,9 +345,9 @@ export function Profile() {
                         <span className="block text-xl font-bold text-gray-900">{streak}</span>
                         <span className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Streak</span>
                     </div>
-                    <div className="bg-gray-50 p-3 rounded-2xl text-center">
+                    <div className="bg-gray-50 p-3 rounded-2xl text-center flex flex-col justify-center">
                         <span className="block text-xl font-bold text-gray-900">{badges.length}</span>
-                        <span className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Achievements</span>
+                        <span className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wider font-semibold truncate w-full">Achievements</span>
                     </div>
                 </div>
             </header>

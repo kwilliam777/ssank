@@ -1,21 +1,29 @@
-import React, { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useGameStore } from '../store/useGameStore';
-import { CheckCircle, Circle, ArrowRight } from 'lucide-react';
+import { CheckCircle, Circle, Bell, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { ProgressBar } from '../components/ProgressBar';
+import { AnimatePresence, motion } from 'framer-motion';
+import { auth } from '../lib/firebase';
 
 export function Home() {
-    const { dailyMissions, checkDailyReset, setCurrentLevel } = useGameStore();
+    const { dailyMissions, checkDailyReset, setCurrentLevel, notification, fetchNotification, userData } = useGameStore();
     const navigate = useNavigate();
+    const [isNotificationOpen, setIsNotificationOpen] = useState(false);
 
     useEffect(() => {
         checkDailyReset();
-    }, [checkDailyReset]);
+        fetchNotification();
+    }, [checkDailyReset, fetchNotification]);
 
-    const handleLevelSelect = (level: 'Elementary1' | 'Elementary2' | 'Middle' | 'High') => {
+    const handleLevelSelect = (level: 'Elementary' | 'Middle School' | 'High School' | 'CSAT') => {
         setCurrentLevel(level);
-        navigate('/chapters');
+        if (level === 'CSAT') {
+            navigate('/chapters');
+        } else {
+            navigate('/grades');
+        }
     };
 
     const colorMap: Record<string, { bg: string, hoverBg: string, border: string, hoverBorder: string, text: string }> = {
@@ -25,7 +33,7 @@ export function Home() {
         purple: { bg: 'bg-purple-50', hoverBg: 'hover:bg-purple-50', border: 'border-purple-100', hoverBorder: 'hover:border-purple-200', text: 'text-purple-900' },
     };
 
-    const LevelButton = ({ level, label, emoji, color }: { level: 'Elementary1' | 'Elementary2' | 'Middle' | 'High', label: string, emoji: string, color: string }) => {
+    const LevelButton = ({ level, label, emoji, color }: { level: 'Elementary' | 'Middle School' | 'High School' | 'CSAT', label: string, emoji: string, color: string }) => {
         const styles = colorMap[color];
         return (
             <button
@@ -41,11 +49,78 @@ export function Home() {
     const completedCount = dailyMissions.filter(m => m.completed).length;
     const progressPercentage = (completedCount / dailyMissions.length) * 100;
 
+    const displayName = userData.displayName || auth.currentUser?.email?.split('@')[0] || 'Scholar';
+
     return (
-        <div className="p-6 pb-24">
+        <div className="p-6 pb-24 relative">
+            {/* Notification Popup Modal */}
+            <AnimatePresence>
+                {isNotificationOpen && notification && (
+                    <>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsNotificationOpen(false)}
+                            className="fixed inset-0 bg-black/50 z-50 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="fixed inset-0 m-auto w-full max-w-sm h-fit bg-white rounded-3xl shadow-2xl z-50 p-6 overflow-hidden flex flex-col max-h-[80vh]"
+                        >
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2">
+                                    <div className="bg-amber-100 p-2 rounded-full">
+                                        <Bell className="w-5 h-5 text-amber-600" />
+                                    </div>
+                                    <h2 className="text-xl font-bold text-gray-900">Announcement</h2>
+                                </div>
+                                <button onClick={() => setIsNotificationOpen(false)} className="p-2 hover:bg-gray-100 rounded-full text-gray-500">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            <div className="overflow-y-auto pr-2 custom-scrollbar">
+                                <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
+                                    {notification.content}
+                                </p>
+                            </div>
+
+                            <div className="mt-6 text-right text-xs text-gray-400">
+                                Posted on {new Date(notification.date).toLocaleDateString()}
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+
             <header className="mb-8">
-                <h1 className="text-2xl font-bold text-gray-900">Welcome back!</h1>
-                <p className="text-gray-500">Ready to conquer today's goals?</p>
+                <h1 className="text-2xl font-bold text-gray-900">
+                    {`Welcome ${displayName}!`}
+                </h1>
+                <p className="text-gray-500 mb-6">Ready to conquer today's goals?</p>
+
+                {/* Notification Banner */}
+                {notification && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-amber-50 border border-amber-100 rounded-2xl p-4 flex items-start gap-3 cursor-pointer hover:bg-amber-100/50 transition-colors shadow-sm"
+                        onClick={() => setIsNotificationOpen(true)}
+                    >
+                        <div className="bg-white p-2 rounded-full shadow-sm shrink-0">
+                            <Bell className="w-5 h-5 text-amber-500" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <h3 className="text-sm font-bold text-gray-900 mb-1">New Announcement</h3>
+                            <p className="text-sm text-gray-600 line-clamp-3 leading-relaxed">
+                                {notification.content}
+                            </p>
+                        </div>
+                    </motion.div>
+                )}
             </header>
 
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
@@ -55,28 +130,28 @@ export function Home() {
                         <h2 className="text-lg font-bold text-gray-900 mb-4">Select Level</h2>
                         <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-4">
                             <LevelButton
-                                level="Elementary1"
-                                label="Elementary 1"
+                                level="Elementary"
+                                label="Elementary"
                                 emoji="🌱"
                                 color="green"
                             />
                             <LevelButton
-                                level="Elementary2"
-                                label="Elementary 2"
-                                emoji="🌿"
-                                color="teal"
-                            />
-                            <LevelButton
-                                level="Middle"
+                                level="Middle School"
                                 label="Middle School"
                                 emoji="🏫"
                                 color="blue"
                             />
                             <LevelButton
-                                level="High"
+                                level="High School"
                                 label="High School"
                                 emoji="🎓"
                                 color="purple"
+                            />
+                            <LevelButton
+                                level="CSAT"
+                                label="CSAT"
+                                emoji="📝"
+                                color="teal"
                             />
                         </div>
                     </section>

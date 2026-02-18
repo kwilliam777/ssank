@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { BookOpen, Home as HomeIcon, Trophy, User, BrainCircuit, Flame, Star, Timer, Keyboard } from 'lucide-react';
+import { BookOpen, Home as HomeIcon, Trophy, User, BrainCircuit, Flame, Star, Timer, Keyboard, Gamepad2, Sparkles } from 'lucide-react';
 import clsx from 'clsx';
 import { useGameStore } from '../store/useGameStore';
 import { ProgressBar } from './ProgressBar';
@@ -25,13 +25,15 @@ const NavItem = ({ to, icon: Icon, label }: { to: string; icon: React.ElementTyp
 
 export function Layout() {
     const { points, level, streak, xp, xpToNextLevel, checkDailyReset } = useGameStore();
+    const location = useLocation();
+    const isWritingCenter = location.pathname === '/writing-center';
 
     useEffect(() => {
         checkDailyReset();
     }, [checkDailyReset]);
 
     return (
-        <div className="flex h-screen bg-gray-50 text-gray-900 font-sans overflow-hidden">
+        <div className="flex h-[100dvh] bg-gray-50 text-gray-900 font-sans overflow-hidden">
             {/* Desktop Side Navigation */}
             <aside className="hidden md:flex flex-col w-64 bg-white border-r border-gray-200 h-full p-6">
                 <div className="flex items-center gap-3 mb-10 px-2">
@@ -47,6 +49,23 @@ export function Layout() {
                     <NavItem to="/quiz" icon={BrainCircuit} label="Quiz" />
                     <NavItem to="/dictation" icon={Keyboard} label="Dictation" />
                     <NavItem to="/time-challenge" icon={Timer} label="Time Challenge" />
+                    <NavItem to="/games" icon={Gamepad2} label="Arcade Games" />
+
+                    {/* PC Writing Center */}
+                    <Link
+                        to="/writing-center"
+                        className={clsx(
+                            "flex items-center w-full px-4 py-2 text-sm font-medium transition-colors duration-200 rounded-lg",
+                            location.pathname === '/writing-center'
+                                ? "bg-gradient-to-r from-purple-100 to-indigo-100 text-purple-700 border border-purple-200"
+                                : "text-gray-500 hover:bg-purple-50 hover:text-purple-600"
+                        )}
+                    >
+                        <Sparkles className={clsx("w-5 h-5 mr-3", location.pathname === '/writing-center' ? "text-purple-600 fill-purple-200" : "text-purple-400")} />
+                        <span>Writing Center</span>
+                        <span className="ml-auto text-[10px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full font-bold">AI</span>
+                    </Link>
+
                     <NavItem to="/leaderboard" icon={Trophy} label="Rank" />
                     <NavItem to="/profile" icon={User} label="Profile" />
                 </nav>
@@ -88,16 +107,49 @@ export function Layout() {
                     </div>
                 </header>
 
-                <main className="flex-1 overflow-y-auto pb-32 md:pb-6 md:px-6 md:py-8 flex flex-col">
-                    <div className="max-w-7xl mx-auto h-full w-full flex-1">
+                <main className={clsx(
+                    "flex-1 flex flex-col",
+                    isWritingCenter ? "overflow-hidden" : "overflow-y-auto pb-32 md:pb-6 md:px-6 md:py-8"
+                )}>
+                    <div className={clsx(
+                        "w-full flex-1",
+                        isWritingCenter ? "h-full" : "max-w-7xl mx-auto"
+                    )}>
                         <Outlet />
                     </div>
                 </main>
 
-                {/* Mobile Bottom Navigation */}
+                {/* Mobile Bottom Navigation - Hide on Writing Center? Or Just Fixed? 
+                    Usually chat apps hide the bottom nav or keep it. 
+                    User said "other component's view".
+                    Let's keep it but ensure it doesn't overlap weirdly. 
+                    If WritingCenter is 100% height, bottom nav might cover the input.
+                    WritingCenter has input at bottom.
+                    The Layout creates a fixed bottom nav.
+                    We should probably ADD padding to Writing Center to account for it, OR
+                    let WritingCenter handle it.
+                    However, the request is about "header part hidden... other part moves".
+                    Using 100dvh helps.
+                    The bottom nav has z-50.
+                */}
                 <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 safe-area-bottom z-50">
-                    <div className="flex justify-around">
+                    <div className="flex justify-around items-center h-16">
                         <NavItem to="/" icon={HomeIcon} label="Home" />
+
+                        {/* Mobile Writing Center */}
+                        <Link
+                            to="/writing-center"
+                            className="flex flex-col items-center justify-center w-full h-full text-xs font-medium text-purple-600"
+                        >
+                            <div className={clsx(
+                                "w-10 h-10 rounded-full flex items-center justify-center mb-0.5 transition-all shadow-sm",
+                                location.pathname === '/writing-center' ? "bg-purple-600 text-white shadow-purple-200" : "bg-purple-100 text-purple-600"
+                            )}>
+                                <Sparkles className="w-5 h-5 fill-current" />
+                            </div>
+                            <span className="text-[10px] font-bold">Writing(AI)</span>
+                        </Link>
+
                         <NavItem to="/leaderboard" icon={Trophy} label="Rank" />
                         <NavItem to="/profile" icon={User} label="Profile" />
                     </div>

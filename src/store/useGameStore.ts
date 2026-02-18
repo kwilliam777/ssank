@@ -29,7 +29,8 @@ interface GameState {
     dailyMissions: DailyMission[];
 
     // Level System
-    currentLevel: 'Elementary1' | 'Elementary2' | 'Middle' | 'High';
+    currentLevel: 'Elementary' | 'Middle School' | 'High School' | 'CSAT';
+    currentGrade: string | null; // e.g., "1-2", "3-4", "1", "2", "3"
     currentChapter: number;
 
     // User Data
@@ -41,6 +42,18 @@ interface GameState {
         schoolName: string | null;
     };
 
+    // Session Persistence
+    sessionProgress: Record<string, any>; // Map of session ID to progress data
+    saveSessionProgress: (sessionId: string, data: any) => void;
+    getSessionProgress: (sessionId: string) => any;
+    clearSessionProgress: (sessionId: string) => void;
+
+    // Chat Persistence
+    chatHistory: { id: string; text: string; sender: 'user' | 'ai'; timestamp: number }[];
+    chatLastDate: string | null;
+    clearChatHistory: () => void;
+    addChatMessage: (message: { id: string; text: string; sender: 'user' | 'ai'; timestamp: number }) => void;
+
     // Actions
     addPoints: (amount: number) => void;
     incrementStreak: () => void;
@@ -49,12 +62,32 @@ interface GameState {
     checkAchievements: () => void;
     updateMissionProgress: (missionId: string, amount: number) => void;
     checkDailyReset: () => void;
-    setCurrentLevel: (level: 'Elementary1' | 'Elementary2' | 'Middle' | 'High') => void;
+    setCurrentLevel: (level: 'Elementary' | 'Middle School' | 'High School' | 'CSAT') => void;
+    setCurrentGrade: (grade: string | null) => void;
     setCurrentChapter: (chapter: number) => void;
     setUserData: (user: Partial<GameState['userData']>) => void; // Allow partial updates
     loadFromFirestore: (uid: string) => Promise<void>;
     updateProfile: (data: { displayName?: string; schoolName?: string; photoURL?: string }) => Promise<void>;
     logout: () => void;
+
+    // Notification System
+    notification: { content: string; date: string; id?: string } | null;
+    fetchNotification: () => Promise<void>;
+    updateNotification: (content: string) => Promise<void>;
+    clearNotification: () => Promise<void>;
+
+    // Chapter Statistics (Perfect Scores)
+    chapterStats: Record<string, {
+        dictation: boolean;
+        quiz_ko_en: boolean;
+        quiz_context: boolean;
+        quiz_meaning: boolean;
+        // Keep generic quiz for backward compatibility or direct access if needed, 
+        // but broadly we should use the specific ones. 
+        // For simplicity in UI, we can calculate 'quiz' completion on the fly.
+        // Let's remove the generic 'quiz' key from the type to force update.
+    }>;
+    recordChapterSuccess: (mode: 'dictation' | 'quiz_ko_en' | 'quiz_context' | 'quiz_meaning') => void;
 }
 
 const DEFAULT_MISSIONS: DailyMission[] = [
@@ -86,11 +119,13 @@ const debouncedSync = (state: GameState) => {
                 dailyMissions: state.dailyMissions,
                 lastLoginDate: state.lastLoginDate,
                 currentLevel: state.currentLevel,
+                currentGrade: state.currentGrade,
                 currentChapter: state.currentChapter,
                 displayName: state.userData.displayName,
                 photoURL: state.userData.photoURL,
                 schoolName: state.userData.schoolName,
                 lastResetMonth: state.lastResetMonth,
+                chapterStats: state.chapterStats,
                 lastUpdated: new Date().toISOString()
             };
             await setDoc(userRef, dataToSave, { merge: true });
@@ -117,10 +152,44 @@ export const useGameStore = create<GameState>()(
 
             lastLoginDate: new Date().toDateString(),
             dailyMissions: DEFAULT_MISSIONS,
-            currentLevel: 'Elementary1',
+            currentLevel: 'Elementary',
+            currentGrade: '1-2', // Default
             currentChapter: 1,
 
+            sessionProgress: {},
+
             userData: { uid: null, email: null, displayName: null, photoURL: null, schoolName: null },
+
+            // Chat Persistence Implementation
+            chatHistory: [],
+            chatLastDate: null,
+            clearChatHistory: () => set({ chatHistory: [], chatLastDate: null }),
+            addChatMessage: (message) => set((state) => ({
+                chatHistory: [...state.chatHistory, message],
+                chatLastDate: new Date().toDateString()
+            })),
+
+            saveSessionProgress: (sessionId, data) => {
+                set(state => ({
+                    sessionProgress: {
+                        ...state.sessionProgress,
+                        [sessionId]: data
+                    }
+                }));
+            },
+
+            getSessionProgress: (sessionId) => {
+                const { sessionProgress } = get();
+                return sessionProgress[sessionId] || null;
+            },
+
+            clearSessionProgress: (sessionId) => {
+                set(state => {
+                    const newProgress = { ...state.sessionProgress };
+                    delete newProgress[sessionId];
+                    return { sessionProgress: newProgress };
+                });
+            },
 
             addPoints: (amount) => {
                 const { xp, xpToNextLevel, level, userData } = get();
@@ -202,35 +271,36 @@ export const useGameStore = create<GameState>()(
             toggleMute: () => set((state) => ({ isMuted: !state.isMuted })),
 
             checkDailyReset: () => {
-                const today = new Date().toDateString();
-                const { lastLoginDate } = get();
+                const todayDate = new Date();
+                const today = todayDate.toDateString();
+                const { lastLoginDate, streak } = get();
 
                 // Check Monthly Reset
                 const currentMonth = new Date().getMonth();
                 const { lastResetMonth } = get();
 
                 if (currentMonth !== lastResetMonth) {
-                    // Reset for new month
                     set({
                         points: 0,
                         streak: 0,
-                        // badges: [], // Keep badges? Usually yes.
                         lastResetMonth: currentMonth
                     });
-                    // Reset School Score if applicable? 
-                    // Schools might want cumulative or monthly. 
-                    // The request said "reset all the ranking system to 0". 
-                    // Users point reset effectively resets user ranking.
-                    // School score is cumulative in DB. We might need to reset school score in DB too 
-                    // or just track monthly score. For simplicity, we just reset user points which feeds into rankings.
-                    // However, the school score in DB is incremented. 
-                    // To fully reset, we'd need a cloud function or similar. 
-                    // Client-side reset for school is risky/hard. 
-                    // Let's stick to user reset for now as requested "users need to start over".
                 }
 
                 if (today !== lastLoginDate) {
+                    // It's a new day! Calculate streak.
+                    const yesterday = new Date(todayDate);
+                    yesterday.setDate(yesterday.getDate() - 1);
+
+                    let newStreak = 1; // Default reset to 1
+
+                    // If login was yesterday, increment streak
+                    if (yesterday.toDateString() === lastLoginDate) {
+                        newStreak = streak + 1;
+                    }
+
                     set({
+                        streak: newStreak,
                         lastLoginDate: today,
                         dailyMissions: DEFAULT_MISSIONS.map(m => {
                             if (m.id === 'daily_login') {
@@ -240,8 +310,17 @@ export const useGameStore = create<GameState>()(
                             return { ...m, progress: 0, completed: false };
                         })
                     });
+
+                    // Check for achievements with new streak
+                    get().checkAchievements();
+
                 } else {
-                    // Same day, but check if we have new missions (e.g. from app update)
+                    // Same day, just ensure streak is at least 1 if it's 0 (e.g. fresh install today)
+                    if (streak === 0) {
+                        set({ streak: 1 });
+                    }
+
+                    // Check if we have new missions (e.g. from app update)
                     const { dailyMissions } = get();
                     const missingMissions = DEFAULT_MISSIONS.filter(dm => !dailyMissions.find(m => m.id === dm.id));
 
@@ -258,7 +337,8 @@ export const useGameStore = create<GameState>()(
                 }
             },
 
-            setCurrentLevel: (level) => set({ currentLevel: level, currentChapter: 1 }), // Reset chapter when level changes
+            setCurrentLevel: (level) => set({ currentLevel: level, currentGrade: null, currentChapter: 1 }), // Reset grade and chapter when level changes
+            setCurrentGrade: (grade) => set({ currentGrade: grade, currentChapter: 1 }),
             setCurrentChapter: (chapter) => set({ currentChapter: chapter }),
 
             setUserData: (user) => set(state => ({ userData: { ...state.userData, ...user } })),
@@ -291,9 +371,11 @@ export const useGameStore = create<GameState>()(
                             badges: data.badges || [],
                             dailyMissions: data.dailyMissions || DEFAULT_MISSIONS,
                             lastLoginDate: data.lastLoginDate,
-                            currentLevel: data.currentLevel,
+                            currentLevel: data.currentLevel || 'Elementary',
+                            currentGrade: data.currentGrade || null,
                             currentChapter: data.currentChapter,
                             lastResetMonth: data.lastResetMonth !== undefined ? data.lastResetMonth : new Date().getMonth(),
+                            chapterStats: data.chapterStats || {},
                             userData: {
                                 uid: uid,
                                 email: null, // We might not have this in stored data unless we auth again
@@ -302,6 +384,10 @@ export const useGameStore = create<GameState>()(
                                 schoolName: data.schoolName || null
                             }
                         });
+                        // IMPORTANT: Check for daily reset AFTER loading remote data
+                        // This ensures if I logged in on another device yesterday, 
+                        // my local state now reflects that, and checkDailyReset will increment streak.
+                        get().checkDailyReset();
                     } else {
                         // New user, save initial state which is already in store
                         // We trigger a sync by updating userData
@@ -313,6 +399,70 @@ export const useGameStore = create<GameState>()(
                     }
                 } catch (e) {
                     console.error("Error loading from Firestore:", e);
+                }
+            },
+
+            // Notification Implementation
+            notification: null,
+
+            fetchNotification: async () => {
+                try {
+                    const docRef = doc(db, 'system', 'notifications');
+                    const docSnap = await getDoc(docRef);
+                    if (docSnap.exists()) {
+                        set({ notification: docSnap.data() as any });
+                    }
+                } catch (e) {
+                    console.error("Error fetching notification:", e);
+                }
+            },
+
+            updateNotification: async (content: string) => {
+                try {
+                    const notificationData = {
+                        content,
+                        date: new Date().toISOString(),
+                    };
+                    await setDoc(doc(db, 'system', 'notifications'), notificationData);
+                    set({ notification: notificationData });
+                } catch (e) {
+                    console.error("Error updating notification:", e);
+                }
+            },
+
+            clearNotification: async () => {
+                try {
+                    await setDoc(doc(db, 'system', 'notifications'), { content: null, date: null }); // Or delete doc
+                    set({ notification: null });
+                } catch (e) {
+                    console.error("Error clearing notification:", e);
+                }
+            },
+
+            // Chapter Stats
+            chapterStats: {},
+            recordChapterSuccess: (mode) => {
+                const { currentLevel, currentGrade, currentChapter, chapterStats } = get();
+                const key = `${currentLevel}-${currentGrade || 'all'}-${currentChapter}`;
+
+                const currentStats = chapterStats[key] || {
+                    dictation: false,
+                    quiz_ko_en: false,
+                    quiz_context: false,
+                    quiz_meaning: false
+                };
+
+                // Only update if not already completed
+                if (!currentStats[mode]) {
+                    set({
+                        chapterStats: {
+                            ...chapterStats,
+                            [key]: {
+                                ...currentStats,
+                                [mode]: true
+                            }
+                        }
+                    });
                 }
             },
         }),

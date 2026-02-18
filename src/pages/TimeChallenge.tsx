@@ -8,6 +8,8 @@ import { motion } from 'framer-motion';
 import { ProgressBar } from '../components/ProgressBar';
 import { playSound } from '../utils/sound';
 import { BackButton } from '../components/BackButton';
+import { ExitConfirmModal } from '../components/ExitConfirmModal';
+
 
 export function TimeChallenge() {
     const navigate = useNavigate();
@@ -18,12 +20,47 @@ export function TimeChallenge() {
     const [isGameOver, setIsGameOver] = useState(false);
     const [sessionPoints, setSessionPoints] = useState(0);
 
-    const { addPoints, currentLevel, currentChapter, updateMissionProgress } = useGameStore();
+    // Exit Confirmation
+    const [showExitConfirm, setShowExitConfirm] = useState(false);
+    const { addPoints, currentLevel, currentGrade, currentChapter, updateMissionProgress, saveSessionProgress, getSessionProgress, clearSessionProgress } = useGameStore();
     const timerRef = useRef<NodeJS.Timeout>();
 
+    // Prevent accidental back navigation
+    useEffect(() => {
+        // We can't actually BLOCK the browser back button effectively in all browsers,
+        // but we can intercept the in-app BackButton click.
+        // For browser back, we can use popstate event, but it's tricky in React Router.
+        // React Router v6 unstable_useBlocker is an option but might be complex.
+        // For now, let's rely on the custom BackButton.
+
+        // Block browser refresh/close
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (!isGameOver) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [isGameOver]);
+
+    const handleBackClick = () => {
+        if (!isGameOver) {
+            setShowExitConfirm(true);
+        } else {
+            navigate('/');
+        }
+    };
+
+    // Resume/Save not requested for Games, only exit warning.
+    // "when users try to leave by pressing other tab or go back arrow"
+    // "other tab" -> visibilityChange? "go back arrow" -> in-app back.
+
     const filteredVocabulary = useMemo(() => {
-        return vocabulary.filter(w => w.category === currentLevel && w.chapter === currentChapter);
-    }, [currentLevel, currentChapter]);
+        return vocabulary.filter(w => w.category === currentLevel &&
+            w.chapter === currentChapter &&
+            (!currentGrade || w.grade === currentGrade));
+    }, [currentLevel, currentGrade, currentChapter]);
 
     const currentWord = useMemo(() => {
         if (filteredVocabulary.length === 0) return null;
@@ -73,6 +110,7 @@ export function TimeChallenge() {
 
         if (isCorrect) {
             playSound('correct');
+            setCorrectCount(prev => prev + 1);
             const pointsEarned = 10 + Math.ceil(timeLeft / 5); // Bonus for time
             addPoints(pointsEarned);
             setSessionPoints(prev => {
@@ -114,16 +152,23 @@ export function TimeChallenge() {
     if (isGameOver) {
         return (
             <div className="flex flex-col h-full items-center justify-center p-8 text-center bg-slate-50">
-                <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-sm">
+                <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-sm animate-fade-in-up">
                     <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
                         <Timer className="w-10 h-10 text-red-500" />
                     </div>
-                    <h1 className="text-3xl font-bold text-slate-800 mb-2">Time's Up!</h1>
-                    <p className="text-slate-500 mb-8">You showed great focus.</p>
+                    {/* Check if it was time up or completion */}
+                    <h1 className="text-3xl font-bold text-slate-800 mb-2">{timeLeft > 0 ? "Challenge Complete!" : "Time's Up!"}</h1>
+                    <p className="text-slate-500 mb-8">{timeLeft > 0 ? "You finished all 30 words!" : "You showed great focus."}</p>
 
-                    <div className="bg-indigo-50 p-4 rounded-xl mb-8">
-                        <span className="text-sm text-indigo-500 uppercase font-bold tracking-wider">Total Score</span>
-                        <div className="text-4xl font-bold text-indigo-600">{sessionPoints}</div>
+                    <div className="bg-indigo-50 p-4 rounded-xl mb-8 grid grid-cols-2 gap-4">
+                        <div>
+                            <span className="text-xs text-indigo-500 uppercase font-bold tracking-wider block mb-1">Score</span>
+                            <div className="text-3xl font-bold text-indigo-600">{sessionPoints}</div>
+                        </div>
+                        <div>
+                            <span className="text-xs text-indigo-500 uppercase font-bold tracking-wider block mb-1">Correct</span>
+                            <div className="text-3xl font-bold text-indigo-600">{correctCount}</div>
+                        </div>
                     </div>
 
                     <div className="space-y-3">
@@ -140,10 +185,26 @@ export function TimeChallenge() {
         );
     }
 
+    // Check for completion (30 words)
+    useEffect(() => {
+        if (currentQuestionIndex >= 30) {
+            setIsGameOver(true);
+            updateMissionProgress('finish_time_challenge', 1);
+        }
+    }, [currentQuestionIndex]);
+
     return (
         <div className="flex flex-col h-full bg-slate-50 overflow-hidden">
+            <ExitConfirmModal
+                isOpen={showExitConfirm}
+                onCancel={() => setShowExitConfirm(false)}
+                onConfirm={() => navigate('/')}
+                title="Quit Challenge?"
+                message="Your current score will be lost if you leave now."
+            />
+
             <header className="p-4 flex items-center justify-between">
-                <BackButton />
+                <BackButton onClick={handleBackClick} />
                 <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full shadow-sm border border-slate-200">
                     <Timer className={isAnswered ? "w-5 h-5 text-slate-400" : "w-5 h-5 text-indigo-600 animate-pulse"} />
                     <span className={`font-bold tabular-nums ${timeLeft < 10 ? 'text-red-500' : 'text-slate-800'}`}>{timeLeft}s</span>
@@ -153,6 +214,10 @@ export function TimeChallenge() {
 
             {/* Time Progress Bar */}
             <div className="px-6">
+                <div className="flex justify-between text-xs text-slate-400 mb-1 px-1">
+                    <span>Time</span>
+                    <span>{currentQuestionIndex} / 30 Words</span>
+                </div>
                 <ProgressBar value={timeLeft} max={30} className="h-1.5" colorClass={timeLeft < 10 ? 'bg-red-500' : 'bg-indigo-500'} />
             </div>
 
